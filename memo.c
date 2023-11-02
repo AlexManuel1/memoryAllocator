@@ -2,6 +2,7 @@
 
 // initialize free list
 FreeNodePtr freeListHead = NULL;
+int SMALLEST_FREE_BLOCK_SIZE = 64;
 
 /*
     get size of page in operating system (memory is allocated in pages)
@@ -52,7 +53,7 @@ FreeNodePtr firstFit(size_t size) {
             printf("Removing node %d\n", nodeCount);
             // we found a free node, remove and return
             if (!prevFreeListNode) {
-                freeListHead = NULL;
+                freeListHead = freeListHead->next;
             } else {
                 prevFreeListNode->next = freeListNode->next;
             }
@@ -79,23 +80,29 @@ void* allocateMemory(void* memoryBlock, size_t memoryBlockSize, size_t allocatio
     printf("Allocated memory header data\n");
     printf("    Header address: %p\n", header);
     printf("    Allocation starting address: %p\n" , allocatedBlock);
-    printf("    Allocation size: %d\n", header->size);
     printf("    Allocated memory block ending address: %p\n", ((char*) memoryBlock) + allocationSize + sizeof(header));
+    printf("    Allocation header size: %zu\n", sizeof(AllocatedHeader));
+    printf("    Allocation size: %d\n", header->size);
+    printf("    Allocation size including header: %d\n", header->size + ((int)sizeof(AllocatedHeader)));
 
     const size_t allocatedBlockSizeWithHeader = header->size + sizeof(AllocatedHeader);
-    const int freeBlockSize = memoryBlockSize - (allocatedBlockSizeWithHeader + (int)sizeof(AllocatedHeader));
+    const int freeBlockSize = memoryBlockSize - allocatedBlockSizeWithHeader;
+    const int freeBlockHeaderSize = (int) sizeof(FreeNode);
+    const int freeBlockMemoryAvailable = freeBlockSize - freeBlockHeaderSize;
 
     // add remaining memory to free list if (including allocation header size) >= 0
-    if (freeBlockSize >= ((int)sizeof(FreeNode))) { // make room for header
+    if (freeBlockMemoryAvailable >= SMALLEST_FREE_BLOCK_SIZE){ // make room for header
         printf("Creating new Free Node\n");
         const void *freeBlockStart = (void*) (((char*) allocatedBlock) + header->size);
         FreeNodePtr freeListNode = (FreeNodePtr) freeBlockStart;
-        freeListNode->size = freeBlockSize;
+        freeListNode->size = freeBlockMemoryAvailable;
         freeListNode->next = freeListHead;
         freeListHead = freeListNode;
         printf("Free Block data\n"); 
         printf("    starting address: %p\n", freeBlockStart);
-        printf("    size: %zu\n", freeListHead->size);
+        printf("    Free Block header size: %d\n", freeBlockHeaderSize);
+        printf("    Free Block memory available: %d\n", freeBlockMemoryAvailable);
+        printf("    Free Block total size including header: %d\n", freeBlockMemoryAvailable + freeBlockHeaderSize);
         printf("\n");
     } else {
         printf("Skipping creation of new Free Node\n");
